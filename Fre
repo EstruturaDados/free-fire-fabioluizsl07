@@ -1,0 +1,322 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+// --- ESTRUTURAS DE DADOS ---
+
+/**
+ * @brief Estrutura que representa um Componente necessário para a Torre de Fuga.
+ */
+typedef struct {
+    char nome[30];      // Nome do componente (ex: "Chip Central")
+    char tipo[20];      // Tipo do componente (ex: "controle", "suporte", "propulsão")
+    int prioridade;     // Prioridade de montagem (1=Alta, 10=Baixa)
+} Componente;
+
+// --- VARIÁVEIS GLOBAIS E CONSTANTES ---
+#define MAX_COMPONENTES 20
+Componente componentes[MAX_COMPONENTES];
+int totalComponentes = 0;
+char componenteChave[30] = "Chip Central"; // Componente a ser buscado
+
+// Variáveis para medição de desempenho
+long long contadorComparacoes = 0;
+clock_t tempoInicial;
+clock_t tempoFinal;
+
+// --- FUNÇÕES DE UTILIDADE E INTERFACE ---
+
+/**
+ * @brief Remove o caractere de nova linha (\n) lido por fgets.
+ */
+void removerNovaLinha(char *string) {
+    size_t len = strlen(string);
+    if (len > 0 && string[len - 1] == '\n') {
+        string[len - 1] = '\0';
+    }
+}
+
+/**
+ * @brief Exibe o vetor de componentes de forma formatada.
+ */
+void mostrarComponentes() {
+    printf("\n--- Componentes da Torre de Fuga (%d/%d) ---\n", totalComponentes, MAX_COMPONENTES);
+    if (totalComponentes == 0) {
+        printf("Nenhum componente cadastrado.\n");
+        return;
+    }
+    printf("+------------------------------+--------------------+-----------+\n");
+    printf("| Nome                         | Tipo               | Prioridade|\n");
+    printf("+------------------------------+--------------------+-----------+\n");
+    for (int i = 0; i < totalComponentes; i++) {
+        printf("| %-28s | %-18s | %10d |\n", 
+               componentes[i].nome, 
+               componentes[i].tipo, 
+               componentes[i].prioridade);
+    }
+    printf("+------------------------------+--------------------+-----------+\n");
+}
+
+/**
+ * @brief Cadastra um novo componente na lista.
+ */
+void cadastrarComponente() {
+    if (totalComponentes >= MAX_COMPONENTES) {
+        printf("\n🚫 Capacidade máxima de %d componentes atingida.\n", MAX_COMPONENTES);
+        return;
+    }
+
+    Componente novo;
+    printf("\n--- Cadastro de Componente ---\n");
+    
+    // Leitura do Nome (usando fgets para segurança)
+    printf("Nome do Componente: ");
+    fgets(novo.nome, 30, stdin);
+    removerNovaLinha(novo.nome);
+    
+    // Leitura do Tipo
+    printf("Tipo (ex: controle, suporte, propulsao): ");
+    fgets(novo.tipo, 20, stdin);
+    removerNovaLinha(novo.tipo);
+
+    // Leitura da Prioridade
+    printf("Prioridade (1=Alta a 10=Baixa): ");
+    while (scanf("%d", &novo.prioridade) != 1 || novo.prioridade < 1 || novo.prioridade > 10) {
+        printf("Prioridade inválida. Digite um número entre 1 e 10: ");
+        int c; while ((c = getchar()) != '\n' && c != EOF); // Limpa buffer
+    }
+    int c; while ((c = getchar()) != '\n' && c != EOF); // Limpa buffer após o int
+
+    componentes[totalComponentes] = novo;
+    totalComponentes++;
+
+    printf("\n✅ Componente '%s' cadastrado com sucesso! (Total: %d/%d)\n", novo.nome, totalComponentes, MAX_COMPONENTES);
+    mostrarComponentes();
+}
+
+// -------------------------------------------------------------------
+//                          FUNÇÕES DE ORDENAÇÃO
+// -------------------------------------------------------------------
+
+/**
+ * @brief Bubble Sort para ordenar por Nome (Strings). O(n^2).
+ */
+void bubbleSortNome() {
+    contadorComparacoes = 0;
+    tempoInicial = clock();
+
+    for (int i = 0; i < totalComponentes - 1; i++) {
+        for (int j = 0; j < totalComponentes - 1 - i; j++) {
+            // Comparação de Strings
+            contadorComparacoes++;
+            if (strcmp(componentes[j].nome, componentes[j+1].nome) > 0) {
+                // Troca (swap)
+                Componente temp = componentes[j];
+                componentes[j] = componentes[j+1];
+                componentes[j+1] = temp;
+            }
+        }
+    }
+
+    tempoFinal = clock();
+    printf("\n✅ Ordenação por NOME (Bubble Sort) concluída.\n");
+    printf("   Comparações realizadas: %lld\n", contadorComparacoes);
+    printf("   Tempo de execução: %.6f segundos (O(n^2))\n", (double)(tempoFinal - tempoInicial) / CLOCKS_PER_SEC);
+}
+
+/**
+ * @brief Insertion Sort para ordenar por Tipo (Strings). O(n^2).
+ */
+void insertionSortTipo() {
+    contadorComparacoes = 0;
+    tempoInicial = clock();
+
+    for (int i = 1; i < totalComponentes; i++) {
+        Componente chave = componentes[i];
+        int j = i - 1;
+
+        // Desloca os elementos maiores que a 'chave' uma posição para a frente
+        while (j >= 0) {
+            contadorComparacoes++;
+            if (strcmp(componentes[j].tipo, chave.tipo) > 0) {
+                componentes[j + 1] = componentes[j];
+                j--;
+            } else {
+                break; // O elemento está na posição correta
+            }
+        }
+        componentes[j + 1] = chave;
+    }
+
+    tempoFinal = clock();
+    printf("\n✅ Ordenação por TIPO (Insertion Sort) concluída.\n");
+    printf("   Comparações realizadas: %lld\n", contadorComparacoes);
+    printf("   Tempo de execução: %.6f segundos (O(n^2))\n", (double)(tempoFinal - tempoInicial) / CLOCKS_PER_SEC);
+}
+
+/**
+ * @brief Selection Sort para ordenar por Prioridade (Inteiros). O(n^2).
+ */
+void selectionSortPrioridade() {
+    contadorComparacoes = 0;
+    tempoInicial = clock();
+
+    for (int i = 0; i < totalComponentes - 1; i++) {
+        int indiceMenor = i;
+        
+        // Encontra o índice do menor elemento restante
+        for (int j = i + 1; j < totalComponentes; j++) {
+            contadorComparacoes++;
+            if (componentes[j].prioridade < componentes[indiceMenor].prioridade) {
+                indiceMenor = j;
+            }
+        }
+        
+        // Troca (swap)
+        if (indiceMenor != i) {
+            Componente temp = componentes[i];
+            componentes[i] = componentes[indiceMenor];
+            componentes[indiceMenor] = temp;
+        }
+    }
+
+    tempoFinal = clock();
+    printf("\n✅ Ordenação por PRIORIDADE (Selection Sort) concluída.\n");
+    printf("   Comparações realizadas: %lld\n", contadorComparacoes);
+    printf("   Tempo de execução: %.6f segundos (O(n^2))\n", (double)(tempoFinal - tempoInicial) / CLOCKS_PER_SEC);
+}
+
+// -------------------------------------------------------------------
+//                            FUNÇÃO DE BUSCA
+// -------------------------------------------------------------------
+
+/**
+ * @brief Busca Binária no vetor ordenado por Nome. O(log n).
+ * @return O índice do componente, ou -1 se não for encontrado.
+ */
+int buscaBinariaPorNome(const char *nomeBusca) {
+    contadorComparacoes = 0;
+    tempoInicial = clock();
+    
+    int inicio = 0;
+    int fim = totalComponentes - 1;
+
+    while (inicio <= fim) {
+        int meio = inicio + (fim - inicio) / 2;
+        int comparacao = strcmp(nomeBusca, componentes[meio].nome);
+        
+        contadorComparacoes++;
+        
+        if (comparacao == 0) {
+            tempoFinal = clock();
+            return meio; // Componente-chave encontrado
+        } else if (comparacao < 0) {
+            fim = meio - 1;
+        } else {
+            inicio = meio + 1;
+        }
+    }
+    
+    tempoFinal = clock();
+    return -1; // Componente-chave não encontrado
+}
+
+
+/**
+ * @brief Executa a busca pelo componente-chave e exibe o desempenho.
+ */
+void buscarComponenteChave() {
+    if (totalComponentes == 0) {
+        printf("\n🚫 Não há componentes cadastrados para iniciar a busca.\n");
+        return;
+    }
+    
+    // A Busca Binária exige que o vetor esteja ordenado por NOME
+    printf("\n--- Preparando busca: Ordenando por NOME para Busca Binária (O(log n))...\n");
+    bubbleSortNome(); 
+    mostrarComponentes(); // Exibe após ordenação
+    
+    int indice = buscaBinariaPorNome(componenteChave);
+
+    printf("\n--- 🔍 Resultado da Busca Binária ---\n");
+    if (indice != -1) {
+        printf("✅ O Componente-Chave '%s' foi **LOCALIZADO** no índice %d.\n", componenteChave, indice);
+        printf("   Tipo: %s, Prioridade: %d.\n", componentes[indice].tipo, componentes[indice].prioridade);
+    } else {
+        printf("❌ O Componente-Chave '%s' **NÃO FOI ENCONTRADO**. A montagem não pode começar.\n", componenteChave);
+    }
+    
+    printf("\n--- Desempenho da Busca ---\n");
+    printf("Comparações realizadas: %lld\n", contadorComparacoes);
+    printf("Tempo de execução: %.6f segundos (O(log n))\n", (double)(tempoFinal - tempoInicial) / CLOCKS_PER_SEC);
+}
+
+// -------------------------------------------------------------------
+//                             FUNÇÃO PRINCIPAL
+// -------------------------------------------------------------------
+
+void exibirMenuPrincipal() {
+    printf("\n==========================================================\n");
+    printf("⚙️ ILHA HOSTIL - FASE 3: MONTAGEM DA TORRE DE FUGA\n");
+    printf("==========================================================\n");
+    printf("1. Cadastrar Componente (Total: %d/%d)\n", totalComponentes, MAX_COMPONENTES);
+    printf("--- Estratégias de Ordenação (Medição de Desempenho) ---\n");
+    printf("2. Ordenar por NOME (Bubble Sort)\n");
+    printf("3. Ordenar por TIPO (Insertion Sort)\n");
+    printf("4. Ordenar por PRIORIDADE (Selection Sort)\n");
+    printf("--- Montagem Final ---\n");
+    printf("5. Localizar Componente-Chave (Busca Binária - %s)\n", componenteChave);
+    printf("6. Listar Componentes (Estado Atual)\n");
+    printf("0. Finalizar Simulação\n");
+    printf("----------------------------------------------------------\n");
+    printf("Escolha uma opção: ");
+}
+
+int main() {
+    int opcao;
+    
+    // Configuração inicial para facilitar o teste
+    totalComponentes = 4;
+    strcpy(componentes[0].nome, "Suporte Principal"); strcpy(componentes[0].tipo, "suporte"); componentes[0].prioridade = 5;
+    strcpy(componentes[1].nome, "Chip Central"); strcpy(componentes[1].tipo, "controle"); componentes[1].prioridade = 1;
+    strcpy(componentes[2].nome, "Fusível de Energia"); strcpy(componentes[2].tipo, "controle"); componentes[2].prioridade = 8;
+    strcpy(componentes[3].nome, "Motor de Propulsão"); strcpy(componentes[3].tipo, "propulsao"); componentes[3].prioridade = 3;
+
+    printf("Iniciando a Fase 3: Estratégia de Montagem da Torre.\n");
+
+    do {
+        exibirMenuPrincipal();
+        
+        if (scanf("%d", &opcao) != 1) {
+            printf("\nOpção inválida. Digite um número.\n");
+            int c; while ((c = getchar()) != '\n' && c != EOF); 
+            continue;
+        }
+        int c; while ((c = getchar()) != '\n' && c != EOF); // Limpa buffer após o int
+
+        if (totalComponentes == 0 && opcao > 1 && opcao < 6) {
+             printf("\n🚫 Por favor, cadastre pelo menos um componente (Opção 1) antes de ordenar/buscar.\n");
+             continue;
+        }
+        
+        switch (opcao) {
+            case 1: cadastrarComponente(); break;
+            case 2: bubbleSortNome(); mostrarComponentes(); break;
+            case 3: insertionSortTipo(); mostrarComponentes(); break;
+            case 4: selectionSortPrioridade(); mostrarComponentes(); break;
+            case 5: buscarComponenteChave(); break;
+            case 6: mostrarComponentes(); break;
+            case 0: printf("\n🎉 Sucesso! A torre de fuga está pronta. Você escapou da ilha!\n"); break;
+            default: printf("\nOpção inválida! Tente novamente.\n");
+        }
+        
+        if (opcao != 0 && opcao != 5) {
+            printf("\nPressione ENTER para continuar...");
+            getchar();
+        }
+
+    } while (opcao != 0);
+
+    return 0;
+}
